@@ -6,7 +6,6 @@
   "bin": {
     "shipcheck": "./dist/cli.js"
   },
-  "main": "./dist/index.js",
   "files": [
     "dist"
   ],
@@ -28,8 +27,16 @@
     "claude",
     "codex"
   ],
-  "author": "",
+  "author": "Ned Weingart",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nweingart/shipcheck.git"
+  },
+  "homepage": "https://github.com/nweingart/shipcheck",
+  "bugs": {
+    "url": "https://github.com/nweingart/shipcheck/issues"
+  },
   "engines": {
     "node": ">=18"
   },
