@@ -2,7 +2,7 @@
 
 > Scan React Native iOS projects for common App Store rejection issues and auto-fix them with local AI coding CLIs.
 
-shipcheck catches the 10 most common reasons React Native iOS apps get rejected from the App Store — missing privacy manifests, broken deep links, insecure transport, missing restore purchases, and more. It can also auto-fix most issues using Claude Code or OpenAI Codex.
+shipcheck catches the 16 most common reasons React Native iOS apps get rejected from the App Store — missing privacy manifests, broken deep links, insecure transport, missing restore purchases, hardcoded secrets, and more. It can also auto-fix most issues using Claude Code or OpenAI Codex.
 
 ## Install
 

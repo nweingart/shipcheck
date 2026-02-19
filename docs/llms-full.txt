@@ -48,7 +48,7 @@ Flags:
 
 ---
 
-## All 10 Rules
+## All 16 Rules
 
 ### privacy/missing-privacy-manifest
 - Severity: error
@@ -131,6 +131,48 @@ Detected permissions:
 - Checks: IPHONEOS_DEPLOYMENT_TARGET from project.pbxproj against minimum recommended version (15.0).
 - Triggers: Deployment target is below iOS 15.0.
 - Fix: Updates all IPHONEOS_DEPLOYMENT_TARGET occurrences in project.pbxproj to 15.0 and updates Podfile platform version.
+
+### privacy/missing-att-consent
+- Severity: error
+- Fixable: Yes
+- Checks: Source files for ad/tracking SDK usage (AdMob, Facebook Ads, Google Mobile Ads, AdSupport/IDFA), then verifies ATTrackingManager or equivalent is used.
+- Triggers: Ad SDK detected but no requestTrackingAuthorization, ATTrackingManager, or expo-tracking-transparency usage found.
+- Fix: Adds App Tracking Transparency consent dialog before ad/tracking code runs. Adds NSUserTrackingUsageDescription to Info.plist.
+
+### functionality/missing-sign-in-with-apple
+- Severity: error
+- Fixable: Yes
+- Checks: Source files for third-party social login SDKs (Google Sign-In, Facebook Login, Twitter/X login), then verifies Sign in with Apple is implemented.
+- Triggers: Social login SDK found but no ASAuthorizationAppleIDProvider, @invertase/react-native-apple-authentication, expo-apple-authentication, or react-native-apple-sign-in usage.
+- Fix: Adds Sign in with Apple button alongside existing social login options using the appropriate library.
+
+### security/hardcoded-secrets
+- Severity: warning
+- Fixable: Yes
+- Checks: Source files for known API key/token patterns: Stripe keys (sk_live_, sk_test_), Google API keys (AIza), GitHub tokens (ghp_), AWS keys (AKIA), Bearer tokens, and generic API key/secret assignments.
+- Triggers: One violation per file containing a match (skips test files and examples).
+- Fix: Extracts secrets to environment variables using react-native-config or expo-constants, adds .env to .gitignore.
+
+### metadata/missing-launch-screen
+- Severity: error
+- Fixable: No
+- Checks: Whether a LaunchScreen.storyboard file exists in the ios/ directory.
+- Triggers: No LaunchScreen.storyboard found anywhere in ios/.
+- Not fixable by AI — requires visual design/storyboard file.
+
+### payments/external-payment-links
+- Severity: warning
+- Fixable: Yes
+- Checks: Source files for URLs and text referencing external payment flows: stripe.com/pay, buy.stripe.com, checkout.stripe.com, paypal.me, ko-fi.com, patreon.com, and text like "subscribe on our website" or "buy on our site".
+- Triggers: One violation per file containing a match.
+- Fix: Removes external payment references and recommends using StoreKit/In-App Purchases instead.
+
+### functionality/webview-only
+- Severity: warning
+- Fixable: No
+- Checks: Detects WebView/react-native-webview usage, then counts distinct native UI components beyond View/Text/StyleSheet.
+- Triggers: WebView is used AND fewer than 3 distinct native UI components (FlatList, TextInput, Image, Modal, navigation, etc.) are found in source. Heuristic for apps that are basically a WebView pointing at a URL.
+- Not fixable by AI — requires architectural redesign to add native functionality.
 
 ---
 

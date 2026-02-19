@@ -176,7 +176,7 @@
         Before you ship,<br>check for leaks.
       </h1>
       <p class="mt-5 text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
-        App Store rejections waste days. <span class="text-white font-medium">shipcheck</span> catches the 10 most common reasons React Native iOS apps get rejected — and fixes them with AI.
+        App Store rejections waste days. <span class="text-white font-medium">shipcheck</span> catches the 16 most common reasons React Native iOS apps get rejected — and fixes them with AI.
       </p>
       <div class="mt-9 inline-block install-block">
         <div class="bg-navy-800 border border-white/10 rounded-xl px-8 py-4 font-mono text-base sm:text-lg text-gold-400 select-all">
@@ -233,7 +233,7 @@
     <div class="max-w-4xl mx-auto">
       <div class="text-center mb-14">
         <h2 class="text-3xl font-bold text-white tracking-tight">What It Catches</h2>
-        <p class="mt-3 text-slate-400 max-w-lg mx-auto">10 rules across 5 categories — every one maps to a real App Store rejection reason.</p>
+        <p class="mt-3 text-slate-400 max-w-lg mx-auto">16 rules across 5 categories — every one maps to a real App Store rejection reason.</p>
       </div>
 
       <!-- Privacy -->
@@ -276,6 +276,15 @@
             <p class="mt-2 text-sm text-slate-400">Permission keys declared in <code class="code-inline">Info.plist</code> with no matching API usage in your source — Apple flags these.</p>
             <div class="mt-2 font-mono text-xs text-slate-500">privacy/overbroad-permissions</div>
           </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing ATT Consent</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Ad/tracking SDK detected but no <code class="code-inline">ATTrackingManager</code> consent dialog found. Required since iOS 14.5.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">privacy/missing-att-consent</div>
+          </div>
         </div>
       </div>
 
@@ -305,6 +314,14 @@
             <p class="mt-2 text-sm text-slate-400"><code class="code-inline">MARKETING_VERSION</code> in Xcode project doesn't match <code class="code-inline">package.json</code> version.</p>
             <div class="mt-2 font-mono text-xs text-slate-500">metadata/version-mismatch</div>
           </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing Launch Screen</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">No <code class="code-inline">LaunchScreen.storyboard</code> found in the ios/ directory. Apple requires a launch screen.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">metadata/missing-launch-screen</div>
+          </div>
         </div>
       </div>
 
@@ -326,6 +343,15 @@
             <p class="mt-2 text-sm text-slate-400">IAP library detected but no <code class="code-inline">restorePurchases</code> call found. Apple requires a restore mechanism.</p>
             <div class="mt-2 font-mono text-xs text-slate-500">payments/missing-restore-purchases</div>
           </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">External Payment Links</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">References to external payment URLs (Stripe, PayPal, Patreon, etc.) that may trigger rejection for directing users outside the App Store.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">payments/external-payment-links</div>
+          </div>
         </div>
       </div>
 
@@ -346,6 +372,15 @@
             </div>
             <p class="mt-2 text-sm text-slate-400"><code class="code-inline">NSAllowsArbitraryLoads</code> is enabled — disables App Transport Security entirely.</p>
             <div class="mt-2 font-mono text-xs text-slate-500">security/insecure-transport</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">Hardcoded Secrets</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">API keys, tokens, or secrets hardcoded in source files. These get bundled into the app binary and can be extracted.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">security/hardcoded-secrets</div>
           </div>
         </div>
       </div>
@@ -386,6 +421,23 @@
             <p class="mt-2 text-sm text-slate-400">Deployment target is below iOS 15.0. Older targets increase compatibility issues and review scrutiny.</p>
             <div class="mt-2 font-mono text-xs text-slate-500">functionality/minimum-os-version</div>
           </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing Sign in with Apple</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Third-party social login (Google, Facebook, etc.) detected but no Sign in with Apple. Required by Apple guidelines.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">functionality/missing-sign-in-with-apple</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">WebView-Only App</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">App appears to be a thin WebView wrapper with minimal native UI. Apple rejects apps that are just websites bundled as apps (Guideline 4.2).</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">functionality/webview-only</div>
+          </div>
         </div>
       </div>
     </div>
@@ -398,12 +450,12 @@
     <div class="max-w-4xl mx-auto">
       <div class="text-center mb-14">
         <h2 class="text-3xl font-bold text-white tracking-tight">Patch the Hull</h2>
-        <p class="mt-3 text-slate-400 max-w-lg mx-auto">9 of 10 rules are auto-fixable. shipcheck generates targeted prompts and hands them to your local AI coding CLI.</p>
+        <p class="mt-3 text-slate-400 max-w-lg mx-auto">13 of 16 rules are auto-fixable. shipcheck generates targeted prompts and hands them to your local AI coding CLI.</p>
       </div>
 
       <div class="grid sm:grid-cols-3 gap-6 mb-12">
         <div class="bg-navy-800/60 border border-white/5 rounded-lg p-5 text-center">
-          <div class="text-2xl font-bold text-white">9/10</div>
+          <div class="text-2xl font-bold text-white">13/16</div>
           <div class="text-sm text-slate-400 mt-1">rules auto-fixable</div>
         </div>
         <div class="bg-navy-800/60 border border-white/5 rounded-lg p-5 text-center">
