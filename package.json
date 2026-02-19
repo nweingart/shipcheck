@@ -1,0 +1,49 @@
+{
+  "name": "shipcheck",
+  "version": "0.1.0",
+  "description": "Scan React Native iOS projects for common App Store rejection issues and auto-fix them with local AI coding CLIs",
+  "type": "module",
+  "bin": {
+    "shipcheck": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "app-store",
+    "lint",
+    "scanner",
+    "ai",
+    "claude",
+    "codex"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "fast-glob": "^3.3.3",
+    "fast-xml-parser": "^5.1.0",
+    "ora": "^8.2.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
