@@ -1,6 +1,6 @@
 {
   "name": "shipcheck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scan React Native iOS projects for common App Store rejection issues and auto-fix them with local AI coding CLIs",
   "type": "module",
   "bin": {
