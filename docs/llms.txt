@@ -1,0 +1,36 @@
+# shipcheck
+
+> Scan React Native iOS projects for common App Store rejection issues and auto-fix them with local AI coding CLIs.
+
+shipcheck catches the 10 most common reasons React Native iOS apps get rejected from the App Store — missing privacy manifests, broken deep links, insecure transport, missing restore purchases, and more. It can also auto-fix most issues using Claude Code or OpenAI Codex.
+
+## Install
+
+npm install -g shipcheck
+
+## Core Commands
+
+shipcheck scan [dir]           Scan project for App Store issues (default command)
+  --rule <id>                  Filter rules (e.g. "privacy/*")
+  --severity <level>           Minimum severity: error, warning, info
+  --format <type>              Output: text (default), json, github
+  --config <path>              Config file path
+  --verbose                    Debug logging
+
+shipcheck fix [dir]            Auto-fix issues with AI coding CLI
+  --agent <name>               AI agent: claude, codex, auto (default)
+  --dry-run                    Show prompts without invoking AI
+  --yes                        Skip confirmation
+  --rule <id>                  Fix specific rule only
+  --config <path>              Config file path
+  --verbose                    Debug logging
+
+shipcheck list-rules           List all available rules
+  --category <name>            Filter: privacy, metadata, payments, security, functionality
+  --fixable                    Show only AI-fixable rules
+
+## Links
+
+- Full reference: https://nweingart.github.io/shipcheck/llms-full.txt
+- GitHub: https://github.com/nweingart/shipcheck
+- npm: https://www.npmjs.com/package/shipcheck

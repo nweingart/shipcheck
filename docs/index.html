@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shipcheck — App Store rejection scanner for React Native</title>
+  <meta name="description" content="Scan React Native iOS projects for common App Store rejection issues and auto-fix them with AI.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { 900: '#0a0f1e', 800: '#0f172a', 700: '#1a2340', 600: '#1e293b' },
+            ocean: { 500: '#1e40af', 400: '#3b82f6', 300: '#60a5fa' },
+            gold: { 500: '#f59e0b', 400: '#fbbf24', 300: '#fcd34d' },
+            sand: { 100: '#f5f0e8', 200: '#e8dfd3' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0a0f1e; }
+
+    /* Wave texture */
+    .wave-bg {
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(30, 64, 175, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(30, 64, 175, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
+    }
+
+    /* Rope divider */
+    .rope-divider {
+      height: 4px;
+      background: repeating-linear-gradient(
+        90deg,
+        #92722a 0px, #92722a 8px,
+        #b8952e 8px, #b8952e 12px,
+        #7a5f22 12px, #7a5f22 20px,
+        #b8952e 20px, #b8952e 24px
+      );
+      border-radius: 2px;
+      opacity: 0.4;
+    }
+
+    /* Terminal styling */
+    .terminal {
+      background: #1a1b26;
+      border: 1px solid #2a2d3a;
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .terminal-bar {
+      background: #16171f;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .terminal-dot {
+      width: 11px; height: 11px; border-radius: 50%;
+    }
+    .terminal-body {
+      padding: 16px 20px;
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+
+    /* Severity colors */
+    .sev-error { color: #f87171; }
+    .sev-warning { color: #fbbf24; }
+    .sev-info { color: #60a5fa; }
+    .sev-fix { color: #4ade80; }
+    .sev-dim { color: #64748b; }
+    .sev-white { color: #e2e8f0; }
+    .sev-bold { color: #f1f5f9; font-weight: 600; }
+
+    /* Install block glow */
+    .install-block {
+      position: relative;
+    }
+    .install-block::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(30, 64, 175, 0.3));
+      z-index: -1;
+      filter: blur(8px);
+    }
+
+    /* Category badge */
+    .cat-badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+
+    /* Code highlight */
+    .code-inline {
+      background: rgba(30, 64, 175, 0.15);
+      border: 1px solid rgba(30, 64, 175, 0.25);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+    }
+
+    /* Step number */
+    .step-num {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    /* Card hover */
+    .rule-card {
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .rule-card:hover {
+      border-color: rgba(245, 158, 11, 0.3);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.05);
+    }
+  </style>
+</head>
+<body class="wave-bg text-slate-300 font-sans antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-0 inset-x-0 z-50 bg-navy-900/80 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2.5 text-white font-semibold text-lg tracking-tight">
+        <!-- Compass icon -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-gold-400">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88" fill="currentColor" opacity="0.2" stroke="none"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/>
+        </svg>
+        shipcheck
+      </a>
+      <div class="hidden sm:flex items-center gap-6 text-sm text-slate-400">
+        <a href="#rules" class="hover:text-white transition-colors">Rules</a>
+        <a href="#fix" class="hover:text-white transition-colors">AI Fix</a>
+        <a href="#quickstart" class="hover:text-white transition-colors">Quick Start</a>
+        <a href="#config" class="hover:text-white transition-colors">Config</a>
+        <a href="https://github.com/nweingart/shipcheck" target="_blank" class="hover:text-white transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-20 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <h1 class="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight">
+        Before you ship,<br>check for leaks.
+      </h1>
+      <p class="mt-5 text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
+        App Store rejections waste days. <span class="text-white font-medium">shipcheck</span> catches the 10 most common reasons React Native iOS apps get rejected — and fixes them with AI.
+      </p>
+      <div class="mt-9 inline-block install-block">
+        <div class="bg-navy-800 border border-white/10 rounded-xl px-8 py-4 font-mono text-base sm:text-lg text-gold-400 select-all">
+          npx shipcheck
+        </div>
+      </div>
+      <p class="mt-4 text-sm text-slate-500">No install required. Scan any React Native iOS project.</p>
+    </div>
+  </section>
+
+  <!-- TERMINAL MOCKUP -->
+  <section class="px-6 pb-20">
+    <div class="max-w-2xl mx-auto terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot" style="background:#ff5f57"></span>
+        <span class="terminal-dot" style="background:#febc2e"></span>
+        <span class="terminal-dot" style="background:#28c840"></span>
+        <span class="ml-3 text-xs text-slate-500 font-mono">~/my-app</span>
+      </div>
+      <div class="terminal-body">
+        <div class="sev-dim">$ npx shipcheck</div>
+        <div class="mt-3 sev-bold">shipcheck — React Native iOS App Store Scanner</div>
+        <div class="sev-dim">Scanning ~/my-app</div>
+        <div class="mt-3">
+          <span class="sev-error">  ✖</span> <span class="sev-white">No PrivacyInfo.xcprivacy file found in the ios/ directory.</span>
+        </div>
+        <div class="sev-dim pl-4">  privacy/missing-privacy-manifest <span class="sev-fix">(fixable)</span></div>
+        <div class="mt-1">
+          <span class="sev-error">  ✖</span> <span class="sev-white">Missing NSCameraUsageDescription in Info.plist</span>
+        </div>
+        <div class="sev-dim pl-4">  privacy/missing-purpose-strings <span class="sev-fix">(fixable)</span></div>
+        <div class="mt-1">
+          <span class="sev-error">  ✖</span> <span class="sev-white">NSAllowsArbitraryLoads is true in NSAppTransportSecurity.</span>
+        </div>
+        <div class="sev-dim pl-4">  security/insecure-transport <span class="sev-fix">(fixable)</span></div>
+        <div class="mt-1">
+          <span class="sev-warning">  ⚠</span> <span class="sev-white">MARKETING_VERSION in pbxproj is "1.0.0" but package.json version is "1.1.0"</span>
+        </div>
+        <div class="sev-dim pl-4">  metadata/version-mismatch <span class="sev-fix">(fixable)</span></div>
+        <div class="mt-1">
+          <span class="sev-warning">  ⚠</span> <span class="sev-white">iOS deployment target is 13.0 (below recommended minimum of 15.0)</span>
+        </div>
+        <div class="sev-dim pl-4">  functionality/minimum-os-version <span class="sev-fix">(fixable)</span></div>
+        <div class="mt-4 sev-white"><span class="sev-error">3 errors</span>, <span class="sev-warning">2 warnings</span></div>
+        <div class="sev-fix">5 fixable with `shipcheck fix`</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-4xl mx-auto px-6"><div class="rope-divider"></div></div>
+
+  <!-- WHAT IT CATCHES -->
+  <section id="rules" class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl font-bold text-white tracking-tight">What It Catches</h2>
+        <p class="mt-3 text-slate-400 max-w-lg mx-auto">10 rules across 5 categories — every one maps to a real App Store rejection reason.</p>
+      </div>
+
+      <!-- Privacy -->
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ocean-400">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-ocean-300 uppercase tracking-wider">Privacy</h3>
+        </div>
+        <div class="grid gap-3">
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2.5">
+                  <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+                  <span class="text-white font-medium text-sm">Missing Privacy Manifest</span>
+                  <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-400">No <code class="code-inline">PrivacyInfo.xcprivacy</code> found. Required for apps using UserDefaults, file timestamps, disk space APIs.</p>
+              </div>
+            </div>
+            <div class="mt-2 font-mono text-xs text-slate-500">privacy/missing-privacy-manifest</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing Purpose Strings</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Source uses permission APIs (Camera, Location, etc.) but <code class="code-inline">Info.plist</code> is missing the matching <code class="code-inline">NS*UsageDescription</code> key.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">privacy/missing-purpose-strings</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">Overbroad Permissions</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Permission keys declared in <code class="code-inline">Info.plist</code> with no matching API usage in your source — Apple flags these.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">privacy/overbroad-permissions</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ocean-400">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-ocean-300 uppercase tracking-wider">Metadata</h3>
+        </div>
+        <div class="grid gap-3">
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing App Icons</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">No <code class="code-inline">AppIcon.appiconset</code> with valid <code class="code-inline">Contents.json</code> and image assets found.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">metadata/missing-icons</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">Version Mismatch</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400"><code class="code-inline">MARKETING_VERSION</code> in Xcode project doesn't match <code class="code-inline">package.json</code> version.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">metadata/version-mismatch</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payments -->
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ocean-400">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-ocean-300 uppercase tracking-wider">Payments</h3>
+        </div>
+        <div class="grid gap-3">
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing Restore Purchases</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">IAP library detected but no <code class="code-inline">restorePurchases</code> call found. Apple requires a restore mechanism.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">payments/missing-restore-purchases</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ocean-400">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-ocean-300 uppercase tracking-wider">Security</h3>
+        </div>
+        <div class="grid gap-3">
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Insecure Transport (ATS)</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400"><code class="code-inline">NSAllowsArbitraryLoads</code> is enabled — disables App Transport Security entirely.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">security/insecure-transport</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Functionality -->
+      <div>
+        <div class="flex items-center gap-3 mb-4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ocean-400">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-ocean-300 uppercase tracking-wider">Functionality</h3>
+        </div>
+        <div class="grid gap-3">
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-red-500/10 text-red-400 border border-red-500/20">error</span>
+              <span class="text-white font-medium text-sm">Missing Account Deletion</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Auth/signup flows detected but no account deletion mechanism found. Required since June 2022.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">functionality/missing-account-deletion</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">Missing Deep Link Handling</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">URL schemes registered in <code class="code-inline">Info.plist</code> but no <code class="code-inline">Linking</code> handler in source. Unhandled deep links cause crashes.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">functionality/missing-deep-link-handling</div>
+          </div>
+          <div class="rule-card bg-navy-800/60 border border-white/5 rounded-lg p-4">
+            <div class="flex items-center gap-2.5">
+              <span class="cat-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">warning</span>
+              <span class="text-white font-medium text-sm">Minimum OS Version</span>
+              <span class="cat-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">fixable</span>
+            </div>
+            <p class="mt-2 text-sm text-slate-400">Deployment target is below iOS 15.0. Older targets increase compatibility issues and review scrutiny.</p>
+            <div class="mt-2 font-mono text-xs text-slate-500">functionality/minimum-os-version</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-4xl mx-auto px-6"><div class="rope-divider"></div></div>
+
+  <!-- PATCH THE HULL -->
+  <section id="fix" class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl font-bold text-white tracking-tight">Patch the Hull</h2>
+        <p class="mt-3 text-slate-400 max-w-lg mx-auto">9 of 10 rules are auto-fixable. shipcheck generates targeted prompts and hands them to your local AI coding CLI.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-6 mb-12">
+        <div class="bg-navy-800/60 border border-white/5 rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-white">9/10</div>
+          <div class="text-sm text-slate-400 mt-1">rules auto-fixable</div>
+        </div>
+        <div class="bg-navy-800/60 border border-white/5 rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-white">2 agents</div>
+          <div class="text-sm text-slate-400 mt-1">Claude Code &amp; OpenAI Codex</div>
+        </div>
+        <div class="bg-navy-800/60 border border-white/5 rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-white">--dry-run</div>
+          <div class="text-sm text-slate-400 mt-1">preview before patching</div>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot" style="background:#ff5f57"></span>
+          <span class="terminal-dot" style="background:#febc2e"></span>
+          <span class="terminal-dot" style="background:#28c840"></span>
+          <span class="ml-3 text-xs text-slate-500 font-mono">~/my-app</span>
+        </div>
+        <div class="terminal-body">
+          <div class="sev-dim">$ npx shipcheck fix --dry-run</div>
+          <div class="mt-3 sev-bold">shipcheck — AI Fix (dry run)</div>
+          <div class="sev-dim">Scanning ~/my-app</div>
+          <div class="mt-3">
+            <span class="sev-fix">  ⚡</span> <span class="sev-white">privacy/missing-privacy-manifest</span>
+          </div>
+          <div class="sev-dim pl-4">  Create PrivacyInfo.xcprivacy with NSPrivacyAccessedAPITypes</div>
+          <div class="mt-1">
+            <span class="sev-fix">  ⚡</span> <span class="sev-white">privacy/missing-purpose-strings</span>
+          </div>
+          <div class="sev-dim pl-4">  Add NSCameraUsageDescription to Info.plist</div>
+          <div class="mt-1">
+            <span class="sev-fix">  ⚡</span> <span class="sev-white">security/insecure-transport</span>
+          </div>
+          <div class="sev-dim pl-4">  Set NSAllowsArbitraryLoads to false</div>
+          <div class="mt-4 sev-dim">Dry run — no changes made.</div>
+          <div class="sev-dim">Run <span class="sev-white">shipcheck fix --yes</span> to apply fixes.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-4xl mx-auto px-6"><div class="rope-divider"></div></div>
+
+  <!-- QUICK START -->
+  <section id="quickstart" class="py-20 px-6">
+    <div class="max-w-3xl mx-auto">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl font-bold text-white tracking-tight">Quick Start</h2>
+      </div>
+
+      <div class="space-y-8">
+        <!-- Step 1 -->
+        <div class="flex gap-5">
+          <div class="step-num bg-ocean-500/15 text-ocean-300 border border-ocean-500/20 mt-0.5">1</div>
+          <div class="flex-1">
+            <h3 class="text-white font-semibold text-lg">Scan</h3>
+            <p class="text-slate-400 text-sm mt-1">Run from your React Native project root. No install required.</p>
+            <div class="mt-3 bg-navy-800 border border-white/5 rounded-lg p-4 font-mono text-sm text-gold-400">
+              npx shipcheck
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-5">
+          <div class="step-num bg-ocean-500/15 text-ocean-300 border border-ocean-500/20 mt-0.5">2</div>
+          <div class="flex-1">
+            <h3 class="text-white font-semibold text-lg">Review</h3>
+            <p class="text-slate-400 text-sm mt-1">See what's wrong and what's fixable. Preview AI prompts with <code class="code-inline">--dry-run</code>.</p>
+            <div class="mt-3 bg-navy-800 border border-white/5 rounded-lg p-4 font-mono text-sm text-gold-400">
+              npx shipcheck fix --dry-run
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex gap-5">
+          <div class="step-num bg-ocean-500/15 text-ocean-300 border border-ocean-500/20 mt-0.5">3</div>
+          <div class="flex-1">
+            <h3 class="text-white font-semibold text-lg">Fix</h3>
+            <p class="text-slate-400 text-sm mt-1">Let your AI coding CLI patch the issues. Supports Claude Code and OpenAI Codex.</p>
+            <div class="mt-3 bg-navy-800 border border-white/5 rounded-lg p-4 font-mono text-sm text-gold-400">
+              npx shipcheck fix --yes
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-4xl mx-auto px-6"><div class="rope-divider"></div></div>
+
+  <!-- CAPTAIN'S LOG -->
+  <section id="config" class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl font-bold text-white tracking-tight">Captain's Log</h2>
+        <p class="mt-3 text-slate-400 max-w-lg mx-auto">Configure via <code class="code-inline">.shipcheckrc.json</code> in your project root.</p>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Config example -->
+        <div>
+          <h3 class="text-white font-semibold mb-3 text-sm uppercase tracking-wider">Configuration</h3>
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="terminal-dot" style="background:#ff5f57"></span>
+              <span class="terminal-dot" style="background:#febc2e"></span>
+              <span class="terminal-dot" style="background:#28c840"></span>
+              <span class="ml-3 text-xs text-slate-500 font-mono">.shipcheckrc.json</span>
+            </div>
+            <div class="terminal-body text-sm">
+<span class="sev-white">{</span>
+  <span class="sev-info">"agent"</span>: <span class="sev-fix">"claude"</span>,
+  <span class="sev-info">"rules"</span>: {
+    <span class="sev-info">"functionality/minimum-os-version"</span>: {
+      <span class="sev-info">"enabled"</span>: <span class="sev-warning">false</span>
+    },
+    <span class="sev-info">"privacy/overbroad-permissions"</span>: {
+      <span class="sev-info">"severity"</span>: <span class="sev-fix">"error"</span>
+    }
+  },
+  <span class="sev-info">"exclude"</span>: [<span class="sev-fix">"**/vendor/**"</span>]
+<span class="sev-white">}</span>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2 text-sm text-slate-400">
+            <div><code class="code-inline">iosDir</code> — override ios/ directory path</div>
+            <div><code class="code-inline">rules</code> — disable rules or override severity</div>
+            <div><code class="code-inline">agent</code> — preferred AI: claude, codex, or auto</div>
+            <div><code class="code-inline">include</code> / <code class="code-inline">exclude</code> — source file globs</div>
+          </div>
+        </div>
+
+        <!-- CI example -->
+        <div>
+          <h3 class="text-white font-semibold mb-3 text-sm uppercase tracking-wider">CI Integration</h3>
+          <div class="terminal">
+            <div class="terminal-bar">
+              <span class="terminal-dot" style="background:#ff5f57"></span>
+              <span class="terminal-dot" style="background:#febc2e"></span>
+              <span class="terminal-dot" style="background:#28c840"></span>
+              <span class="ml-3 text-xs text-slate-500 font-mono">.github/workflows/shipcheck.yml</span>
+            </div>
+            <div class="terminal-body text-sm">
+<span class="sev-info">name</span>: <span class="sev-white">App Store Check</span>
+<span class="sev-info">on</span>: <span class="sev-white">[push, pull_request]</span>
+<span class="sev-info">jobs</span>:
+  <span class="sev-info">shipcheck</span>:
+    <span class="sev-info">runs-on</span>: <span class="sev-white">macos-latest</span>
+    <span class="sev-info">steps</span>:
+      - <span class="sev-info">uses</span>: <span class="sev-white">actions/checkout@v4</span>
+      - <span class="sev-info">uses</span>: <span class="sev-white">actions/setup-node@v4</span>
+        <span class="sev-info">with</span>:
+          <span class="sev-info">node-version</span>: <span class="sev-fix">'20'</span>
+      - <span class="sev-info">run</span>: <span class="sev-white">npm ci</span>
+      - <span class="sev-info">run</span>: <span class="sev-white">npx shipcheck --format github</span>
+            </div>
+          </div>
+          <p class="mt-4 text-sm text-slate-400">The <code class="code-inline">--format github</code> flag outputs native GitHub Actions annotations that appear inline on pull requests.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-4xl mx-auto px-6"><div class="rope-divider"></div></div>
+
+  <!-- FOOTER -->
+  <footer class="py-14 px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="flex items-center justify-center gap-6 text-sm">
+        <a href="https://github.com/nweingart/shipcheck" target="_blank" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+        <span class="text-slate-700">|</span>
+        <a href="https://www.npmjs.com/package/shipcheck" target="_blank" class="text-slate-400 hover:text-white transition-colors">npm</a>
+        <span class="text-slate-700">|</span>
+        <a href="https://github.com/nweingart/shipcheck/blob/main/LICENSE" target="_blank" class="text-slate-400 hover:text-white transition-colors">MIT License</a>
+        <span class="text-slate-700">|</span>
+        <a href="./llms.txt" class="text-slate-400 hover:text-white transition-colors">llms.txt</a>
+      </div>
+      <p class="mt-5 text-sm text-slate-600 italic">Fair winds and following seas.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,263 @@
+# shipcheck — Complete Reference
+
+Scan React Native iOS projects for common App Store rejection issues and auto-fix them with local AI coding CLIs.
+
+Version: 0.1.0
+License: MIT
+Repository: https://github.com/nweingart/shipcheck
+Node requirement: >=18
+
+---
+
+## CLI Commands
+
+### shipcheck scan [dir]
+
+Scans the project for App Store compliance issues. This is the default command — `shipcheck` and `shipcheck scan` are equivalent.
+
+Flags:
+  --rule <id>        Filter rules by ID or glob (e.g. "privacy/*", "security/insecure-transport")
+  --severity <level> Minimum severity to report: error, warning, or info
+  --format <type>    Output format: text (default), json, or github
+  --config <path>    Path to config file (overrides auto-detection)
+  --verbose          Enable debug logging
+
+Exit code: 1 if any error-severity violations found, 0 otherwise.
+
+### shipcheck fix [dir]
+
+Scans for fixable issues and invokes a local AI coding CLI to apply fixes.
+
+Flags:
+  --agent <name>   AI agent to use: claude, codex, or auto (default: auto)
+  --dry-run        Show what would be fixed and print prompts — does not invoke AI
+  --yes            Skip confirmation and proceed (required to actually apply fixes)
+  --rule <id>      Fix only a specific rule
+  --config <path>  Path to config file
+  --verbose        Enable debug logging
+
+Without --yes, prints a warning and exits without fixing. Each violation is fixed sequentially.
+
+### shipcheck list-rules
+
+Lists all available rules grouped by category.
+
+Flags:
+  --category <name>  Filter by category: privacy, metadata, payments, security, functionality
+  --fixable          Show only AI-fixable rules
+
+---
+
+## All 10 Rules
+
+### privacy/missing-privacy-manifest
+- Severity: error
+- Fixable: Yes
+- Checks: Whether a PrivacyInfo.xcprivacy file exists in the ios/ directory.
+- Triggers: No PrivacyInfo.xcprivacy found anywhere in ios/.
+- Fix: Creates PrivacyInfo.xcprivacy in ios/<AppName>/ declaring NSPrivacyAccessedAPITypes for UserDefaults (CA92.1), NSPrivacyTracking: false, and empty NSPrivacyCollectedDataTypes.
+
+### privacy/missing-purpose-strings
+- Severity: error
+- Fixable: Yes
+- Checks: Source files for permission API usage, then verifies matching NS*UsageDescription keys exist in Info.plist.
+- Triggers: Source code uses a permission API (Camera, Photo Library, Location, Microphone, Contacts, Calendars, Face ID, Bluetooth, Motion, Speech Recognition) but the corresponding NS*UsageDescription key is missing from Info.plist. One violation per missing key.
+- Fix: Adds the missing NS*UsageDescription key to Info.plist with an appropriate user-facing description.
+
+Detected permissions:
+  Camera           -> NSCameraUsageDescription
+  Photo Library    -> NSPhotoLibraryUsageDescription
+  Location         -> NSLocationWhenInUseUsageDescription
+  Microphone       -> NSMicrophoneUsageDescription
+  Contacts         -> NSContactsUsageDescription
+  Calendars        -> NSCalendarsUsageDescription
+  Face ID          -> NSFaceIDUsageDescription
+  Bluetooth        -> NSBluetoothAlwaysUsageDescription
+  Motion           -> NSMotionUsageDescription
+  Speech           -> NSSpeechRecognitionUsageDescription
+
+### privacy/overbroad-permissions
+- Severity: warning
+- Fixable: Yes
+- Checks: The inverse — finds NS*UsageDescription keys in Info.plist where no matching API usage exists in source code.
+- Triggers: A permission key is declared in Info.plist but the corresponding API pattern is not found in source.
+- Fix: Removes the unused NS*UsageDescription key from Info.plist.
+
+### metadata/missing-icons
+- Severity: error
+- Fixable: No
+- Checks: Whether AppIcon.appiconset exists in ios/ with a Contents.json and at least one image file.
+- Triggers: No AppIcon.appiconset directory, missing Contents.json, or no image files (.png/.jpg/.jpeg) inside it.
+- Not fixable by AI — requires actual image assets.
+
+### metadata/version-mismatch
+- Severity: warning
+- Fixable: Yes
+- Checks: Compares MARKETING_VERSION from project.pbxproj against the version field in package.json.
+- Triggers: Both values exist and they differ.
+- Fix: Updates all occurrences of MARKETING_VERSION in project.pbxproj to match package.json.
+
+### payments/missing-restore-purchases
+- Severity: error
+- Fixable: Yes
+- Checks: Detects IAP library usage (react-native-iap, expo-in-app-purchases, RevenueCat), then checks for restore purchases calls.
+- Triggers: IAP library is used but no restorePurchases/getAvailablePurchases/restoreTransactions call found.
+- Fix: Adds a "Restore Purchases" button with proper error handling and loading state.
+
+### security/insecure-transport
+- Severity: error
+- Fixable: Yes
+- Checks: Whether NSAllowsArbitraryLoads is true in NSAppTransportSecurity in Info.plist.
+- Triggers: NSAllowsArbitraryLoads is set to true.
+- Fix: Removes or sets to false; uses NSExceptionDomains for specific domains that need HTTP.
+
+### functionality/missing-account-deletion
+- Severity: error
+- Fixable: Yes
+- Checks: Detects auth/signup code, then checks for account deletion flows.
+- Triggers: Auth patterns found (signUp, createAccount, Firebase Auth, Supabase, Clerk, Auth0, Cognito) but no deleteAccount/removeUser/account deletion flow detected.
+- Fix: Adds a "Delete Account" button in settings with confirmation dialog, backend deletion call, local data cleanup, and navigation to sign-in.
+
+### functionality/missing-deep-link-handling
+- Severity: warning
+- Fixable: Yes
+- Checks: If Info.plist registers URL schemes (CFBundleURLTypes), verifies source code has a Linking handler.
+- Triggers: URL schemes registered but no Linking.addEventListener, getInitialURL, useURL, or React Navigation linking config found.
+- Fix: Adds React Navigation linking config or Linking API handlers for cold start (getInitialURL) and warm start (addEventListener).
+
+### functionality/minimum-os-version
+- Severity: warning
+- Fixable: Yes
+- Checks: IPHONEOS_DEPLOYMENT_TARGET from project.pbxproj against minimum recommended version (15.0).
+- Triggers: Deployment target is below iOS 15.0.
+- Fix: Updates all IPHONEOS_DEPLOYMENT_TARGET occurrences in project.pbxproj to 15.0 and updates Podfile platform version.
+
+---
+
+## Configuration
+
+Config files are auto-detected in order: .shipcheckrc.json, then shipcheck.config.json. Override with --config <path>.
+
+Schema:
+{
+  "iosDir": "<string>",          // Override ios/ directory path (auto-detected by default)
+  "rules": {                     // Per-rule overrides (all optional)
+    "<rule-id>": {
+      "enabled": true | false,   // Disable a rule
+      "severity": "error" | "warning" | "info"  // Override severity
+    }
+  },
+  "agent": "claude" | "codex" | "auto",  // Preferred AI agent (default: auto)
+  "include": ["<glob>", ...],    // Extra source file globs to include
+  "exclude": ["<glob>", ...]     // Globs to exclude from scanning
+}
+
+All fields are optional. Example:
+
+{
+  "agent": "claude",
+  "rules": {
+    "functionality/minimum-os-version": { "enabled": false },
+    "privacy/overbroad-permissions": { "severity": "error" }
+  },
+  "exclude": ["**/vendor/**"]
+}
+
+---
+
+## Output Formats
+
+### text (default)
+Human-readable with color-coded severity icons:
+  ✖ = error (red)
+  ⚠ = warning (yellow)
+  ℹ = info (blue)
+Fixable rules show "(fixable)" in green. Summary line at bottom.
+
+### json
+Structured JSON with project info, summary counts, and results array. Only rules with violations are included.
+
+{
+  "project": { "rootDir": "...", "appName": "...", "iosDir": "..." },
+  "summary": { "errors": 2, "warnings": 1, "info": 0, "total": 3 },
+  "results": [
+    {
+      "ruleId": "privacy/missing-privacy-manifest",
+      "title": "Missing Privacy Manifest",
+      "severity": "error",
+      "fixable": true,
+      "violations": [
+        { "message": "...", "file": "...", "line": null, "fix": { "prompt": "...", "files": [...] } }
+      ]
+    }
+  ]
+}
+
+### github
+GitHub Actions annotation format — one line per violation:
+  ::error file=<path>,title=<title>::<message> [<rule-id>]
+  ::warning file=<path>,title=<title>::<message> [<rule-id>]
+  ::notice file=<path>,title=<title>::<message> [<rule-id>]
+
+---
+
+## Common Workflows
+
+### Scan a project
+  cd my-react-native-app
+  npx shipcheck
+
+### Scan with specific format
+  npx shipcheck scan --format json
+  npx shipcheck scan --format github
+
+### Scan only specific rules
+  npx shipcheck scan --rule "privacy/*"
+  npx shipcheck scan --rule "security/insecure-transport"
+
+### Preview fixes without applying
+  npx shipcheck fix --dry-run
+
+### Apply fixes with Claude Code
+  npx shipcheck fix --agent claude --yes
+
+### Apply fixes with OpenAI Codex
+  npx shipcheck fix --agent codex --yes
+
+### CI Integration (GitHub Actions)
+  - name: Scan for App Store issues
+    run: npx shipcheck scan --format github
+
+This outputs GitHub-native annotations that appear inline on PRs.
+
+Full GitHub Actions example:
+
+  name: App Store Check
+  on: [push, pull_request]
+  jobs:
+    shipcheck:
+      runs-on: macos-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+        - run: npm ci
+        - run: npx shipcheck scan --format github
+
+### List all rules
+  npx shipcheck list-rules
+
+### List fixable rules only
+  npx shipcheck list-rules --fixable
+
+---
+
+## Supported AI Agents
+
+Agent detection (auto mode) checks PATH for binaries in order: claude, then codex.
+
+  Claude Code  ->  claude -p "<prompt>" --allowedTools Edit,Read,Write,Glob,Grep
+  OpenAI Codex ->  codex exec --full-auto "<prompt>"
+
+Each violation is fixed sequentially with a 5-minute timeout per fix.
